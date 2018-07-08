@@ -29,7 +29,6 @@ jupyter==1.0.0
 jupyter-client==5.2.3
 jupyter-console==5.2.0
 jupyter-core==4.4.0
-kapre==0.0.3
 Keras==1.2.1
 kiwisolver==1.0.1
 librosa==0.4.0
@@ -70,7 +69,7 @@ singledispatch==3.4.0.3
 six==1.11.0
 subprocess32==3.5.2
 tensorboard==1.7.0
-tensorflow-gpu==1.7.0
+tensorflow==1.7.0
 tensorflow-tensorboard==0.4.0
 termcolor==1.1.0
 terminado==0.8.1

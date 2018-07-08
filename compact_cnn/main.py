@@ -2,7 +2,6 @@
 from argparse import Namespace
 import models as my_models
 from keras import backend as K
-import pdb
 import numpy as np
 
 
@@ -20,8 +19,11 @@ def main(mode, conv_until=None):
     if conv_until is None:
         conv_until = 4
 
-    assert K.image_dim_ordering() == 'th', ('image_dim_ordering should be "th". ' +
-                                            'open ~/.keras/keras.json to change it.')
+    # assert K.image_dim_ordering() == 'th', ('image_dim_ordering should be "th". ' +
+    #                                         'open ~/.keras/keras.json to change it.')
+    # TODO what are the issues with the library
+    # dimension ordering is off and I think it might be kapre
+    # it could be fixed by changing the kapre version maybe
 
     args = Namespace(tf_type='melgram',  # which time-frequency to use
                      normalize='no', decibel=True, fmin=0.0, fmax=6000,  # mel-spectrogram params
@@ -30,10 +32,11 @@ def main(mode, conv_until=None):
     # set in [0, 1, 2, 3, 4] if feature extracting.
 
     model = my_models.build_convnet_model(args=args, last_layer=last_layer)
-    model.load_weights('weights_layer{}_{}.hdf5'.format(conv_until, K._backend),
-                       by_name=True)
-    model.layers[1].summary()
     model.summary()
+    model.layers[1].summary()
+    model.load_weights('weights_layer{}_{}_new.hdf5'.format(conv_until, K._backend),
+                       by_name=True)
+    # model.summary()
     # and use it!
     return model
 
@@ -64,5 +67,8 @@ if __name__ == '__main__':
     #
     feat = [md.predict(src)[0] for md in models] # get 5 features, each is 32-dim
     feat = np.array(feat).reshape(-1) # (160, ) (flatten)
+    norm_feats=  np.linalg.norm(feat)
+    exp_norm_feats = 9.9169
+    assert np.isclose(norm_feats, exp_norm_feats), 'expected {} got {}'.format(exp_norm_feats, norm_feats)
     # now use this feature for whatever MIR tasks.
 
