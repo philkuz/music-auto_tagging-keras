@@ -1,9 +1,11 @@
-# 2016-06-06 Updating for Keras 1.0 API
+from argparse import Namespace
+from keras import backend as K
 import numpy as np
+import tensorflow as tf
+
 import keras
 from keras.models import Sequential
-from keras import backend as K
-from keras.layers import Layer, Dense, Activation, Flatten
+from keras.layers import Dense, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import GlobalAveragePooling2D
@@ -16,21 +18,6 @@ if IS_KERAS2:
 
 SR = 12000
 
-
-def build_convnet_model(args, last_layer=True, sr=None, compile=True):
-    ''' '''
-    tf = args.tf_type
-    normalize = args.normalize
-    if normalize in ('no', 'False'):
-        normalize = None
-    decibel = args.decibel
-    model = raw_vgg(args, tf=tf, normalize=normalize, decibel=decibel,
-                    last_layer=last_layer, sr=sr)
-    if compile:
-        model.compile(optimizer=keras.optimizers.Adam(lr=5e-3),
-                      loss='binary_crossentropy')
-
-    return model
 
 def raw_vgg(args, input_length=12000 * 29, tf='melgram', normalize=None,
             decibel=False, last_layer=True, sr=None):
@@ -120,3 +107,66 @@ def get_convBNeluMPdrop(num_conv_layers, nums_feat_maps,
             break
 
     return model
+def setup_model(mode, conv_until=None, compile=True,sr=None):
+    assert mode in ('feature', 'tagger')
+    if mode == 'feature':
+        last_layer = False
+    else:
+        last_layer = True
+
+    if conv_until is None:
+        conv_until = 4
+
+    K.set_image_dim_ordering('tf')
+
+    args = Namespace(tf_type='melgram',  # which time-frequency to use
+                     normalize='no', decibel=True, fmin=0.0, fmax=6000,  # mel-spectrogram params
+                     n_mels=96, trainable_fb=False, trainable_kernel=False,  # mel-spectrogram params
+                     conv_until=conv_until)  # how many conv layer to use? set it 4 if tagging.
+    # set in [0, 1, 2, 3, 4] if feature extracting.
+
+    # model = my_models.build_convnet_model(args=args, last_layer=last_layer)
+    normalize = args.normalize
+    if normalize in ('no', 'False'):
+        normalize = None
+    model = raw_vgg(args, tf=args.tf_type, normalize=normalize, decibel=args.decibel,
+                    last_layer=last_layer, sr=sr)
+    if compile:
+        model.compile(optimizer=keras.optimizers.Adam(lr=5e-3),
+                      loss='binary_crossentropy')
+
+    return model
+    # model.layers[1].save_weights('weights_layer{}_{}_new.hdf5'.format(conv_until, K._backend))
+    # and use it!
+    return model
+
+
+if __name__ == '__main__':
+
+    # load models that predict features from different level
+    model = setup_model('feature')  # equal to setup_model('feature', 4), highest-level feature extraction
+
+
+
+
+    # source for example
+    src = np.load('1100103.clip.npy')  # (348000, )
+    src = src[np.newaxis, :]  # (1, 348000)
+    src = np.array([src]) # (1, 1, 348000) to make it batch
+
+    #
+    ph = tf.placeholder(tf.float32, shape=(1,1,348000))
+    # feat = [md.predict(src)[0] for md in models] # get 5 features, each is 32-dim
+    # feat = np.array(feat).reshape(-1) # (160, ) (flatten)
+    # now use this feature for whatever MIR tasks.
+    preds = model(ph)
+    # feat = model.predict(src)[0]
+    sess = tf.InteractiveSession()
+    K.set_session(sess)
+    sess.run( tf.global_variables_initializer())
+    model.load_weights('my_weights_tensorflow.h5',by_name=True)
+    feat = sess.run(preds, feed_dict={ph:src})[0]
+    feat_gt = np.load('feats.npy')[:32]
+    # assert all(np.isclose(feat_gt, feat))
+
+    assert np.isclose(np.linalg.norm(feat),  np.linalg.norm(feat_gt)), 'exp: {} act: {}'.format(np.linalg.norm(feat_gt), np.linalg.norm(feat))
