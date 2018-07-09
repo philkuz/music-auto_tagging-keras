@@ -164,7 +164,7 @@ if __name__ == '__main__':
     sess = tf.InteractiveSession()
     K.set_session(sess)
     sess.run( tf.global_variables_initializer())
-    model.load_weights('my_weights_tensorflow.h5',by_name=True)
+    model.load_weights('weights_tf_dim.h5',by_name=True)
     feat = sess.run(preds, feed_dict={ph:src})[0]
     feat_gt = np.load('feats.npy')[:32]
     # assert all(np.isclose(feat_gt, feat))
